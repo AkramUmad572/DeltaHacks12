@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
+import ChatInterface from './components/ChatInterface';
 
 const API_BASE = '/api';
 
@@ -28,6 +29,7 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [stats, setStats] = useState({ total: 0, returned: 0 });
+  const [isChatOpen, setIsChatOpen] = useState(false);
 
   // Load initial data and suggestions on mount
   useEffect(() => {
@@ -168,6 +170,13 @@ function App() {
             <h1>INSIDER DETECTOR</h1>
           </div>
           <p className="tagline">Kalshi Market Explorer • DeltaHacks 12</p>
+          <button 
+            className="chat-toggle-btn"
+            onClick={() => setIsChatOpen(!isChatOpen)}
+            title="Open AI Assistant"
+          >
+            🤖 AI Assistant
+          </button>
         </div>
       </header>
 
@@ -385,6 +394,11 @@ function App() {
       <footer className="footer">
         <p>DeltaHacks 12 • Powered by Kalshi API</p>
       </footer>
+
+      <ChatInterface 
+        isOpen={isChatOpen} 
+        onClose={() => setIsChatOpen(false)} 
+      />
     </div>
   );
 }

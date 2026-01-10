@@ -5,6 +5,8 @@ import { Configuration, MarketApi, EventsApi, SearchApi } from 'kalshi-typescrip
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { gatherContext } from './services/contextGatherer.js';
+import { generateResponse } from './services/geminiService.js';
 
 dotenv.config();
 
@@ -526,6 +528,93 @@ app.post('/api/refresh', async (req, res) => {
     res.json({ status: 'ok', message: 'Cache refreshed' });
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+// AI Chat endpoint
+app.post('/api/chat', async (req, res) => {
+  try {
+    const { message, conversationHistory } = req.body;
+
+    if (!message || typeof message !== 'string' || message.trim().length === 0) {
+      return res.status(400).json({ error: 'Message is required and must be a non-empty string' });
+    }
+
+    // Sanitize input
+    const sanitizedMessage = message.trim().slice(0, 2000); // Limit message length
+
+    console.log(`💬 Chat request: "${sanitizedMessage.substring(0, 50)}..."`);
+
+    let context;
+    try {
+      // Gather context based on the query
+      context = await gatherContext(
+        marketApi,
+        eventsApi,
+        sanitizedMessage,
+        getAllEvents
+      );
+    } catch (contextError) {
+      console.error('Error gathering context:', contextError);
+      // Continue with empty context if gathering fails
+      context = {
+        query: sanitizedMessage,
+        parsed: {},
+        markets: [],
+        trades: [],
+        orderbooks: [],
+        events: [],
+        patterns: null,
+        summary: 'Unable to gather market context'
+      };
+    }
+
+    // Generate AI response
+    let aiResponse;
+    try {
+      aiResponse = await generateResponse(sanitizedMessage, context);
+    } catch (aiError) {
+      console.error('Error generating AI response:', aiError);
+      
+      // Handle specific error types
+      if (aiError.message && aiError.message.includes('not initialized')) {
+        return res.status(503).json({ 
+          error: 'AI service is not available. Please configure GEMINI_API_KEY in backend/.env file.',
+          details: aiError.message
+        });
+      }
+      
+      if (aiError.message && (aiError.message.includes('rate limit') || aiError.message.includes('429'))) {
+        return res.status(429).json({ 
+          error: 'AI service rate limit exceeded. Please try again in a moment.',
+          details: aiError.message
+        });
+      }
+
+      // Return a helpful error message
+      return res.status(500).json({ 
+        error: 'Failed to generate AI response',
+        details: aiError.message || 'Unknown error occurred'
+      });
+    }
+
+    res.json({
+      success: true,
+      response: aiResponse.response,
+      model: aiResponse.model,
+      contextSummary: context.summary,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Unexpected error in chat endpoint:', error);
+    console.error('Error stack:', error.stack);
+    
+    // Always return JSON, never HTML
+    res.status(500).json({ 
+      error: 'An unexpected error occurred',
+      details: error.message || 'Unknown error',
+      type: error.constructor.name
+    });
   }
 });
 
