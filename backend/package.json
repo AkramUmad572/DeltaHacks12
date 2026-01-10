@@ -1,0 +1,17 @@
+{
+  "name": "kalshi-backend",
+  "version": "1.0.0",
+  "description": "Backend API for Kalshi market data - Insider Trading Detection",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "kalshi-typescript": "^3.4.0"
+  }
+}
