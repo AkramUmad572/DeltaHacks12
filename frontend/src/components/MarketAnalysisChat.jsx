@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 
 const API_BASE = '/api';
 
-function MarketAnalysisChat({ isOpen, onClose, marketData, analysisData, tradesData, orderbookData, embedded = false }) {
+function MarketAnalysisChat({ isOpen, onClose, marketData, analysisData, tradesData, orderbookData, embedded = false, preventInitialScroll = false }) {
   const [messages, setMessages] = useState([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -16,7 +16,7 @@ function MarketAnalysisChat({ isOpen, onClose, marketData, analysisData, tradesD
       let initialMessage;
       
       if (analysisData) {
-        initialMessage = `I've analyzed **${marketData.ticker || 'this market'}** - ${marketData.title || 'Market Analysis'}.
+        initialMessage = `I've analyzed this market.
 
 Your suspicion score is **${analysisData.suspicionScore}/100** (${analysisData.riskLevel} risk) with ${analysisData.confidence}% confidence.
 
@@ -24,9 +24,7 @@ ${analysisData.summary || ''}
 
 Ask me why this market might be suspicious, what any terms mean, or dive deeper into specific signals!`;
       } else {
-        initialMessage = `I'm here to help you understand **${marketData.ticker || 'this market'}** - ${marketData.title || 'Market Analysis'}.
-
-I have access to all the market data. Ask me anything about this market, trading concepts, or terminology. You can also run analysis in the Insider Detection tab to get detailed insights!`;
+        initialMessage = `I am here to help you understand this market.`;
       }
 
       setMessages([
@@ -38,17 +36,26 @@ I have access to all the market data. Ask me anything about this market, trading
     }
   }, [marketData, isOpen, analysisData, messages.length]);
 
-  // Auto-scroll to bottom when new messages arrive
+  // Auto-scroll to bottom when new messages arrive (but not on initial load if preventInitialScroll is true)
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
-
-  // Focus input when chat opens
-  useEffect(() => {
-    if (isOpen && inputRef.current) {
-      setTimeout(() => inputRef.current.focus(), 100);
+    // Don't scroll on initial load if preventInitialScroll is set
+    if (preventInitialScroll && messages.length === 1) {
+      return;
     }
-  }, [isOpen]);
+    // Only auto-scroll if there are existing messages (user has already interacted)
+    if (messages.length > 1) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages, preventInitialScroll]);
+
+  // Focus input when chat opens (but don't scroll if preventInitialScroll is true)
+  useEffect(() => {
+    if (isOpen && inputRef.current && !preventInitialScroll) {
+      setTimeout(() => {
+        inputRef.current.focus();
+      }, 100);
+    }
+  }, [isOpen, preventInitialScroll]);
 
   const handleSend = async (e) => {
     e?.preventDefault();
@@ -235,7 +242,7 @@ I have access to all the market data. Ask me anything about this market, trading
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
           onKeyPress={handleKeyPress}
-          placeholder="Ask why this market might be suspicious, what terms mean, or about specific signals..."
+          placeholder="Ask questions about this market through AI"
           className="chat-input"
           disabled={isLoading || !marketData}
         />

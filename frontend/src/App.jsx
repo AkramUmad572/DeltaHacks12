@@ -36,6 +36,7 @@ function App({ initialSearch = '', onGoHome }) {
   const [stats, setStats] = useState({ total: 0, returned: 0 });
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isAnalysisChatOpen, setIsAnalysisChatOpen] = useState(false);
+  const [showChatAfterScroll, setShowChatAfterScroll] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [insiderAnalysis, setInsiderAnalysis] = useState(null);
   const [analysisResponseData, setAnalysisResponseData] = useState(null); // Store full analysis response
@@ -324,7 +325,7 @@ Risk Thresholds:
     if (initialSearch) {
       handleSearch();
     } else {
-      loadEvents();
+    loadEvents();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -699,6 +700,27 @@ Risk Thresholds:
     fetchMarketDetails(market.ticker);
     // Auto-run analysis when market is selected so chat has all data
     analyzeForInsiderTrading(market.ticker);
+    
+    // Reset scroll position to top when modal opens - use multiple attempts to ensure it sticks
+    setShowChatAfterScroll(false); // Hide chat initially to prevent scroll
+    const resetScroll = () => {
+      const modalInner = document.querySelector('.modal-content-inner');
+      if (modalInner) {
+        modalInner.scrollTop = 0;
+        modalInner.scrollTo({ top: 0, behavior: 'auto' });
+      }
+    };
+    
+    // Reset immediately and after delays to prevent any auto-scroll
+    resetScroll();
+    requestAnimationFrame(() => {
+      resetScroll();
+      setTimeout(() => {
+        resetScroll();
+        setShowChatAfterScroll(true); // Show chat after scroll is reset
+      }, 100);
+      setTimeout(resetScroll, 200);
+    });
   };
 
   const closeModal = () => {
@@ -708,6 +730,7 @@ Risk Thresholds:
     setInsiderAnalysis(null);
     setAnalysisResponseData(null);
     setIsAnalysisChatOpen(false);
+    setShowChatAfterScroll(false);
     setActiveTab('overview');
     setExpandedCategories({});
   };
@@ -960,18 +983,18 @@ Risk Thresholds:
 
         {/* Category Tabs & Filter Button */}
         <div className="controls-row">
-          <nav className="category-tabs">
-            {CATEGORIES.map(category => (
-              <button
-                key={category}
-                className={`category-tab ${activeCategory === category ? 'active' : ''}`}
-                onClick={() => handleCategoryClick(category)}
-              >
-                {category}
-              </button>
-            ))}
-          </nav>
-          
+        <nav className="category-tabs">
+          {CATEGORIES.map(category => (
+            <button
+              key={category}
+              className={`category-tab ${activeCategory === category ? 'active' : ''}`}
+              onClick={() => handleCategoryClick(category)}
+            >
+              {category}
+            </button>
+          ))}
+        </nav>
+
           <div className="filter-controls" ref={filterDropdownRef}>
             <button 
               className="filter-icon-btn"
@@ -1008,7 +1031,7 @@ Risk Thresholds:
                       <option value="closing">Closing Soon</option>
                       <option value="default">Default</option>
                     </select>
-                  </div>
+            </div>
 
                   {/* Frequency Dropdown */}
                   <div className="filter-item dropdown">
@@ -1142,7 +1165,7 @@ Risk Thresholds:
                 <div className="event-header">
                   <div className="event-category-wrapper">
                     <span className="category-icon">{getCategoryIcon(event.category)}</span>
-                    <span className="event-category">{event.category}</span>
+                  <span className="event-category">{event.category}</span>
                   </div>
                   <div className="event-meta">
                     {totalVolume > 0 && (
@@ -1153,9 +1176,9 @@ Risk Thresholds:
                         {totalVolume >= 1000 ? `${(totalVolume / 1000).toFixed(1)}K` : totalVolume}
                       </span>
                     )}
-                    {event.markets?.length > 1 && (
-                      <span className="market-count">{event.markets.length} markets</span>
-                    )}
+                  {event.markets?.length > 1 && (
+                    <span className="market-count">{event.markets.length} markets</span>
+                  )}
                     <button
                       className={`event-watchlist-star ${isInWatchlist(event.event_ticker) ? 'active' : ''}`}
                       onClick={(e) => {
@@ -1294,16 +1317,16 @@ Risk Thresholds:
                   }
                   
                   return (
-                    <div className="price-cards">
-                      <div className="price-card yes">
+                <div className="price-cards">
+                  <div className="price-card yes">
                         <div className="price-main">{yesBid}¢</div>
                         <div className="price-label-clean">Yes {isFinalized && market?.result === 'yes' && '✓ WON'}</div>
-                      </div>
-                      <div className="price-card no">
+                  </div>
+                  <div className="price-card no">
                         <div className="price-main">{noBid}¢</div>
                         <div className="price-label-clean">No {isFinalized && market?.result === 'no' && '✓ WON'}</div>
-                      </div>
-                    </div>
+                  </div>
+                </div>
                   );
                 })()}
 
@@ -1490,26 +1513,17 @@ Risk Thresholds:
                               <div className="risk-buttons">
                                 <button 
                                   className="ask-ai-btn"
-                                  onClick={() => {
-                                    setIsAnalysisChatOpen(true);
-                                    // Scroll to chat after a brief delay to allow render
-                                    setTimeout(() => {
-                                      const chatContainer = document.getElementById('analysis-chat-container');
-                                      if (chatContainer) {
-                                        chatContainer.scrollIntoView({ behavior: 'smooth', block: 'end' });
-                                      }
-                                    }, 100);
-                                  }}
+                                  onClick={() => setIsAnalysisChatOpen(true)}
                                   title="Ask AI to explain the analysis"
                                 >
                                   🤖 Ask AI to Explain
                                 </button>
-                                <button 
-                                  className="export-btn"
-                                  onClick={() => exportReport(insiderAnalysis, marketDetails?.market)}
-                                >
-                                  Export Report
-                                </button>
+                              <button 
+                                className="export-btn"
+                                onClick={() => exportReport(insiderAnalysis, marketDetails?.market)}
+                              >
+                                Export Report
+                              </button>
                               </div>
                             </div>
                           </div>
@@ -1724,7 +1738,7 @@ Risk Thresholds:
                   )}
 
                   {/* AI Analysis Chat - Always visible at bottom of modal, regardless of tab */}
-                  {showModal && (
+                  {showModal && showChatAfterScroll && (
                     <div className="embedded-analysis-chat-container" id="analysis-chat-container">
                       <MarketAnalysisChat
                         isOpen={true}
@@ -1734,6 +1748,7 @@ Risk Thresholds:
                         tradesData={analysisResponseData?.trades}
                         orderbookData={analysisResponseData?.orderbook}
                         embedded={true}
+                        preventInitialScroll={true}
                       />
                     </div>
                   )}
