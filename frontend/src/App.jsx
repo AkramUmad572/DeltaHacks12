@@ -86,34 +86,6 @@ function App({ initialSearch = '', onGoHome }) {
     isScrollingPausedRef.current = isScrollingPaused;
   }, [isScrollingPaused]);
 
-  // Analyze insider trading function
-  const analyzeForInsiderTrading = async (ticker) => {
-    if (!ticker) {
-      setError('No market ticker provided');
-      return;
-    }
-    
-    setAnalyzingInsider(true);
-    setInsiderAnalysis(null);
-    setError(null);
-    
-    try {
-      const analysis = await runAnalysis(ticker);
-      if (analysis) {
-        setInsiderAnalysis(analysis);
-      } else {
-        throw new Error('Analysis returned empty result');
-      }
-    } catch (err) {
-      console.error('Error analyzing market:', err);
-      const errorMessage = err.message || 'Failed to analyze market. Please try again.';
-      setError(errorMessage);
-      setTimeout(() => setError(null), 5000);
-    } finally {
-      setAnalyzingInsider(false);
-    }
-  };
-
   const toggleCategory = (category) => {
     setExpandedCategories(prev => ({
       ...prev,
@@ -799,7 +771,6 @@ Risk Thresholds:
     setExpandedCategories({});
   };
 
-<<<<<<< HEAD
   const analyzeForInsiderTrading = async (ticker) => {
     setAnalyzingInsider(true);
     // Don't clear analysis data - keep existing if available

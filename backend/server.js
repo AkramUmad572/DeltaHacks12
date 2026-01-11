@@ -2224,7 +2224,6 @@ function generateSummary(score, signals, tradeCount) {
   }
 }
 
-<<<<<<< HEAD
 // Exchange announcements
 app.get('/api/exchange/announcements', async (req, res) => {
   try {
