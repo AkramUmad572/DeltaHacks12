@@ -344,6 +344,195 @@ app.get('/api/suggestions', async (req, res) => {
   }
 });
 
+// Get trending markets based on volume changes, probability movement, and activity
+app.get('/api/trending', async (req, res) => {
+  try {
+    const { limit = 10 } = req.query;
+    const allEvents = await getAllEvents();
+    
+    // Extract all markets from events and calculate trending scores
+    const allMarkets = [];
+    
+    for (const event of allEvents) {
+      if (event.markets && event.markets.length > 0) {
+        for (const market of event.markets) {
+          // Calculate trending score based on multiple factors
+          const volume = market.volume || 0;
+          const openInterest = market.open_interest || 0;
+          const yesBid = market.yes_bid || 0;
+          const lastPrice = market.last_price || 0;
+          
+          // Score factors:
+          // 1. High volume (weight: 40%)
+          // 2. High open interest (weight: 30%)
+          // 3. Price movement indicator (weight: 20%) - markets closer to 50% are more volatile
+          // 4. Recent activity (weight: 10%) - using volume as proxy
+          
+          const volumeScore = Math.min(volume / 10000, 1) * 40; // Normalize to 0-40
+          const openInterestScore = Math.min(openInterest / 50000, 1) * 30; // Normalize to 0-30
+          const priceVolatility = Math.abs((yesBid || lastPrice) - 0.5) * 2; // Distance from 50%
+          const volatilityScore = (1 - priceVolatility) * 20; // Higher score for markets near 50%
+          const activityScore = Math.min(volume / 5000, 1) * 10; // Normalize to 0-10
+          
+          const trendingScore = volumeScore + openInterestScore + volatilityScore + activityScore;
+          
+          allMarkets.push({
+            ticker: market.ticker,
+            title: market.yes_sub_title || market.subtitle || market.title || event.title,
+            category: event.category || 'Uncategorized',
+            event_title: event.title,
+            trendingScore,
+            volume,
+            openInterest,
+            yesBid: yesBid || lastPrice,
+            event_ticker: event.event_ticker
+          });
+        }
+      }
+    }
+    
+    // Sort by trending score and return top markets
+    const trendingMarkets = allMarkets
+      .filter(m => m.trendingScore > 0)
+      .sort((a, b) => b.trendingScore - a.trendingScore)
+      .slice(0, parseInt(limit))
+      .map(m => ({
+        ticker: m.ticker,
+        title: m.title,
+        category: m.category,
+        event_title: m.event_title,
+        volume: m.volume,
+        openInterest: m.openInterest,
+        yesBid: m.yesBid,
+        event_ticker: m.event_ticker
+      }));
+
+    res.json({ 
+      markets: trendingMarkets,
+      total: trendingMarkets.length
+    });
+  } catch (error) {
+    console.error('Error getting trending markets:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get trending events (high volume/activity) - using Kalshi API
+app.get('/api/trending-events', async (req, res) => {
+  try {
+    const { limit = 100 } = req.query;
+    console.log('📊 Fetching trending events...');
+    const allEvents = await getAllEvents();
+    console.log(`   Total events from Kalshi: ${allEvents.length}`);
+    
+    // Calculate trending score based on volume and activity
+    const eventsWithScores = allEvents
+      .filter(e => e.markets && e.markets.length > 0)
+      .map(event => {
+        const totalVolume = event.markets.reduce((sum, m) => sum + (m.volume || 0), 0);
+        const totalOpenInterest = event.markets.reduce((sum, m) => sum + (m.open_interest || 0), 0);
+        
+        // Trending score: prioritize high volume and open interest
+        const trendingScore = totalVolume * 2 + totalOpenInterest;
+        
+        return { ...event, trendingScore, totalVolume, totalOpenInterest };
+      })
+      .sort((a, b) => b.trendingScore - a.trendingScore)
+      .slice(0, parseInt(limit));
+
+    // Remove scoring fields before returning
+    const cleanEvents = eventsWithScores.map(({ trendingScore, totalVolume, totalOpenInterest, ...event }) => event);
+
+    console.log(`   Returning ${cleanEvents.length} trending events`);
+    res.json({ 
+      events: cleanEvents,
+      total: allEvents.length,
+      returned: cleanEvents.length
+    });
+  } catch (error) {
+    console.error('Error getting trending events:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get breaking news events (high recent activity) - using Kalshi API
+app.get('/api/breaking-events', async (req, res) => {
+  try {
+    const { limit = 100 } = req.query;
+    console.log('🔥 Fetching breaking news events...');
+    const allEvents = await getAllEvents();
+    console.log(`   Total events from Kalshi: ${allEvents.length}`);
+    
+    // Breaking news: high volume indicates recent activity/interest
+    const eventsWithScores = allEvents
+      .filter(e => e.markets && e.markets.length > 0)
+      .map(event => {
+        const totalVolume = event.markets.reduce((sum, m) => sum + (m.volume || 0), 0);
+        const totalOpenInterest = event.markets.reduce((sum, m) => sum + (m.open_interest || 0), 0);
+        
+        // Breaking news score: prioritize very high volume (recent activity)
+        const breakingScore = totalVolume * 3 + totalOpenInterest;
+        
+        return { ...event, breakingScore, totalVolume, totalOpenInterest };
+      })
+      .sort((a, b) => b.breakingScore - a.breakingScore)
+      .slice(0, parseInt(limit));
+
+    // Remove scoring fields before returning
+    const cleanEvents = eventsWithScores.map(({ breakingScore, totalVolume, totalOpenInterest, ...event }) => event);
+
+    console.log(`   Returning ${cleanEvents.length} breaking news events`);
+    res.json({ 
+      events: cleanEvents,
+      total: allEvents.length,
+      returned: cleanEvents.length
+    });
+  } catch (error) {
+    console.error('Error getting breaking events:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get new events (recently created) - using Kalshi API
+app.get('/api/new-events', async (req, res) => {
+  try {
+    const { limit = 100 } = req.query;
+    console.log('✨ Fetching new events...');
+    const allEvents = await getAllEvents();
+    console.log(`   Total events from Kalshi: ${allEvents.length}`);
+    
+    // New markets: low volume but some open interest (recently created, not yet heavily traded)
+    const eventsWithScores = allEvents
+      .filter(e => e.markets && e.markets.length > 0)
+      .map(event => {
+        const totalVolume = event.markets.reduce((sum, m) => sum + (m.volume || 0), 0);
+        const totalOpenInterest = event.markets.reduce((sum, m) => sum + (m.open_interest || 0), 0);
+        
+        // New markets score: prioritize low volume but growing open interest
+        // This identifies markets that are new (haven't traded much) but are gaining interest
+        const newnessScore = totalOpenInterest * 2 - (totalVolume * 0.3);
+        
+        return { ...event, newnessScore, totalVolume, totalOpenInterest };
+      })
+      .filter(e => e.newnessScore > 0) // Only include markets with positive score
+      .sort((a, b) => b.newnessScore - a.newnessScore)
+      .slice(0, parseInt(limit));
+
+    // Remove scoring fields before returning
+    const cleanEvents = eventsWithScores.map(({ newnessScore, totalVolume, totalOpenInterest, ...event }) => event);
+
+    console.log(`   Returning ${cleanEvents.length} new events`);
+    res.json({ 
+      events: cleanEvents,
+      total: allEvents.length,
+      returned: cleanEvents.length
+    });
+  } catch (error) {
+    console.error('Error getting new events:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Get single market
 app.get('/api/markets/:ticker', async (req, res) => {
   try {
