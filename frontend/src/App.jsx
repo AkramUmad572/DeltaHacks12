@@ -5,6 +5,8 @@ import ChatInterface from './components/ChatInterface';
 import MarketAnalysisChat from './components/MarketAnalysisChat';
 import CandlestickChart from './components/CandlestickChart';
 import ExchangeStatus from './components/ExchangeStatus';
+import HamburgerMenu from './components/HamburgerMenu';
+import HowItWorks from './components/HowItWorks';
 
 const API_BASE = '/api';
 
@@ -72,6 +74,10 @@ function App({ initialSearch = '', onGoHome }) {
   const isScrollingPausedRef = useRef(false);
   const isProgrammaticSearchRef = useRef(false);
   const [isScrollingPaused, setIsScrollingPaused] = useState(false);
+  const [showHamburgerMenu, setShowHamburgerMenu] = useState(false);
+  const [activeView, setActiveView] = useState('all'); // 'all', 'trending', 'breaking', 'new'
+  const [showViewHeader, setShowViewHeader] = useState(true); // Controls visibility of view header banner
+  const [showHowItWorks, setShowHowItWorks] = useState(false);
   
   // Sync pause state to ref so scroll function can access it
   useEffect(() => {
@@ -94,6 +100,10 @@ function App({ initialSearch = '', onGoHome }) {
 
   const getSortedAndFilteredEvents = () => {
     let filtered = [...events];
+    const now = new Date();
+    
+    // Note: View filtering is now done on the backend, so we don't need to filter here
+    // The events are already filtered by the API endpoints
     
     // Filter by status - only filter if explicitly set to non-all
     if (filterStatus === 'closed') {
@@ -145,8 +155,11 @@ function App({ initialSearch = '', onGoHome }) {
       });
     }
     
-    // Sort
-    if (sortBy === 'volume') {
+    // Sort - views are already sorted by backend, but we can apply additional sorting if needed
+    // For view-specific pages, backend already sorts them correctly
+    if (activeView === 'trending' || activeView === 'breaking' || activeView === 'new') {
+      // Views are already sorted by backend, no need to re-sort
+    } else if (sortBy === 'volume') {
       filtered.sort((a, b) => {
         const volA = (a.markets || []).reduce((sum, m) => sum + (m.volume_24h || m.volume || 0), 0);
         const volB = (b.markets || []).reduce((sum, m) => sum + (m.volume_24h || m.volume || 0), 0);
@@ -511,27 +524,46 @@ Risk Thresholds:
     }
   };
 
-  const loadEvents = async (category = null) => {
+  const loadEvents = async (category = null, view = null) => {
     setLoading(true);
     setError(null);
     
     const cat = category !== null ? category : activeCategory;
+    const currentView = view !== null ? view : activeView;
     
     try {
-      const url = cat === 'All' 
-        ? `${API_BASE}/search?limit=100`
-        : `${API_BASE}/search?category=${encodeURIComponent(cat)}&limit=100`;
+      // Load view-specific events if active
+      let url;
+      if (currentView === 'trending') {
+        url = `${API_BASE}/events/trending?limit=100`;
+        console.log('Loading trending events from:', url);
+      } else if (currentView === 'breaking') {
+        url = `${API_BASE}/events/breaking?limit=100`;
+        console.log('Loading breaking news from:', url);
+      } else if (currentView === 'new') {
+        url = `${API_BASE}/events/new?limit=100`;
+        console.log('Loading new events from:', url);
+      } else {
+        // Regular category-based loading
+        url = cat === 'All' 
+          ? `${API_BASE}/search?limit=100`
+          : `${API_BASE}/search?category=${encodeURIComponent(cat)}&limit=100`;
+      }
       
+      console.log('Fetching from URL:', url);
       const response = await fetch(url);
       const data = await response.json();
       
+      console.log('Response received:', { ok: response.ok, eventCount: data.events?.length });
+      
       if (response.ok) {
         setEvents(data.events || []);
-        setStats({ total: data.total, returned: data.returned });
+        setStats({ total: data.total, returned: data.returned || data.events?.length || 0 });
       } else {
         throw new Error(data.error || 'Failed to load events');
       }
     } catch (err) {
+      console.error('Error loading events:', err);
       setError(err.message);
       setEvents([]);
     } finally {
@@ -545,6 +577,7 @@ Risk Thresholds:
     // Hide autocomplete when search is performed
     setShowAutocomplete(false);
     setIsSearchFocused(false);
+    setActiveView('all'); // Reset view when searching
     
     setLoading(true);
     setError(null);
@@ -672,6 +705,7 @@ Risk Thresholds:
   const handleCategoryClick = (category) => {
     setSearchQuery('');
     setActiveCategory(category);
+    setActiveView('all'); // Reset view when category changes
     loadEvents(category);
   };
 
@@ -799,6 +833,14 @@ Risk Thresholds:
     return watchlist.some(e => e.event_ticker === eventTicker);
   };
 
+  // Load events when view changes (but not if there's a search query)
+  useEffect(() => {
+    if (!searchQuery && activeView) {
+      loadEvents();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeView]); // Reload when view changes
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyPress = (e) => {
@@ -827,7 +869,21 @@ Risk Thresholds:
       <header className="header">
         <div className="header-background"></div>
         <div className="header-content">
-          <div className="logo" onClick={onGoHome}>
+          <div className="header-left-group">
+            {/* Hamburger Menu Button */}
+            <button 
+              className="hamburger-btn"
+              onClick={() => setShowHamburgerMenu(true)}
+              title="Menu"
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="3" y1="12" x2="21" y2="12"/>
+                <line x1="3" y1="6" x2="21" y2="6"/>
+                <line x1="3" y1="18" x2="21" y2="18"/>
+              </svg>
+            </button>
+            
+            <div className="logo" onClick={onGoHome}>
             <div className="logo-container">
               <svg className="logo-icon" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" fill="url(#shield-gradient)" stroke="currentColor"/>
@@ -841,6 +897,7 @@ Risk Thresholds:
               <div className="logo-glow"></div>
             </div>
             <h1>TRADEGUARD</h1>
+            </div>
           </div>
           
           <div className="header-right-group">
@@ -921,7 +978,10 @@ Risk Thresholds:
                 </svg>
                 {watchlist.length > 0 && <span className="watchlist-count">{watchlist.length}</span>}
               </button>
-              <a href="#" className="header-link" onClick={(e) => { e.preventDefault(); }}>
+              <a href="#" className="header-link" onClick={(e) => { 
+                e.preventDefault();
+                setShowHowItWorks(true);
+              }}>
                 <svg className="link-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="12" cy="12" r="10"></circle>
                   <path d="M12 16v-4"></path>
@@ -946,8 +1006,62 @@ Risk Thresholds:
       </header>
 
       <main className="main">
+        {/* View Header */}
+        {activeView !== 'all' && showViewHeader && (
+          <div className="view-header">
+            <div className="view-header-content">
+              <div className="view-header-icon">
+                {activeView === 'trending' && (
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z" fill="#ff8800"/>
+                  </svg>
+                )}
+                {activeView === 'breaking' && (
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="4" y="4" width="16" height="16" rx="1" fill="white" opacity="0.1"/>
+                    <path d="M6 8h12M6 12h8M6 16h6" stroke="currentColor" strokeWidth="2"/>
+                    <circle cx="16" cy="8" r="1" fill="currentColor" opacity="0.6"/>
+                  </svg>
+                )}
+                {activeView === 'new' && (
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" stroke="#ffd700" fill="#ffd700" opacity="0.8"/>
+                    <circle cx="12" cy="12" r="2" fill="#ffd700" opacity="0.6"/>
+                    <circle cx="8" cy="6" r="1" fill="#ffd700"/>
+                    <circle cx="16" cy="6" r="1" fill="#ffd700"/>
+                    <circle cx="8" cy="18" r="1" fill="#ffd700"/>
+                    <circle cx="16" cy="18" r="1" fill="#ffd700"/>
+                  </svg>
+                )}
+              </div>
+              <div className="view-header-text">
+                <h2 className="view-title">
+                  {activeView === 'trending' && 'Trending Markets'}
+                  {activeView === 'breaking' && 'Breaking News'}
+                  {activeView === 'new' && 'New Markets'}
+                </h2>
+                <p className="view-description">
+                  {activeView === 'trending' && 'Markets with the highest trading volume in the last 24 hours'}
+                  {activeView === 'breaking' && 'Latest events and markets from the past 7 days'}
+                  {activeView === 'new' && 'Recently opened markets from the past 3 days'}
+                </p>
+              </div>
+            </div>
+            <button 
+              className="view-close-btn"
+              onClick={() => setShowViewHeader(false)}
+              title="Hide banner"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          </div>
+        )}
+
         {/* Trending Ticker */}
-        {suggestions.length > 0 && !searchQuery && (
+        {suggestions.length > 0 && !searchQuery && activeView === 'all' && (
           <div className="trending-ticker">
             <div className="ticker-label">
               <svg className="ticker-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1099,8 +1213,17 @@ Risk Thresholds:
 
         {/* Results Info */}
         <div className="results-info">
+          <span className="results-label">
+            {(() => {
+              if (activeView === 'trending') return 'Trending';
+              if (activeView === 'breaking') return 'Breaking News';
+              if (activeView === 'new') return 'New';
+              if (activeCategory !== 'All') return activeCategory;
+              return 'All Markets';
+            })()}
+          </span>
           <span className="results-count">
-            {stats.total > 0 ? `${getSortedAndFilteredEvents().length} markets` : 'Loading...'}
+            {stats.total > 0 ? `— ${getSortedAndFilteredEvents().length} markets` : '— Loading...'}
           </span>
           {searchQuery && <span className="results-query">for "{searchQuery}"</span>}
         </div>
@@ -1844,6 +1967,44 @@ Risk Thresholds:
         onClose={() => setIsChatOpen(false)} 
       />
 
+      {/* Hamburger Menu */}
+      <HamburgerMenu
+        isOpen={showHamburgerMenu}
+        onClose={() => setShowHamburgerMenu(false)}
+        activeCategory={activeCategory}
+        activeView={activeView}
+        onCategoryChange={(category) => {
+          setActiveCategory(category);
+          setSearchQuery('');
+          setActiveView('all'); // Reset view when category changes
+        }}
+        onViewChange={(view) => {
+          console.log('View changed to:', view);
+          setSearchQuery('');
+          setActiveCategory('All'); // Set category to All when switching views
+          setActiveView(view);
+          setShowViewHeader(true); // Show the header banner when switching views
+          // Use setTimeout to ensure state is updated before loading
+          setTimeout(() => {
+            loadEvents(null, view); // Reload events for the new view, passing view explicitly
+          }, 0);
+        }}
+        onGoHome={() => {
+          onGoHome();
+          setActiveView('all');
+        }}
+        watchlistCount={watchlist.length}
+        onWatchlistClick={() => {
+          setShowWatchlist(!showWatchlist);
+          setShowHamburgerMenu(false);
+        }}
+      />
+
+      {/* How It Works Modal */}
+      <HowItWorks
+        isOpen={showHowItWorks}
+        onClose={() => setShowHowItWorks(false)}
+      />
     </div>
   );
 }

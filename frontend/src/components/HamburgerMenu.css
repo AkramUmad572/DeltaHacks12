@@ -1,0 +1,300 @@
+.hamburger-menu-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  z-index: 1998;
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.hamburger-menu {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 320px;
+  height: 100vh;
+  background: linear-gradient(180deg, #0a0a0f 0%, #0f0f15 100%);
+  border-right: 1px solid rgba(0, 255, 136, 0.1);
+  z-index: 1999;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.5);
+  animation: slideIn 0.3s ease-out;
+  overflow-y: auto;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.hamburger-menu-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid rgba(0, 255, 136, 0.1);
+  background: rgba(10, 10, 15, 0.5);
+  gap: 0.75rem;
+  min-height: 60px;
+}
+
+.hamburger-logo {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.hamburger-logo:hover {
+  transform: translateY(-1px);
+}
+
+.hamburger-logo:hover .hamburger-logo-glow {
+  opacity: 1;
+  transform: scale(1.2);
+}
+
+.hamburger-logo-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hamburger-logo-icon {
+  width: 24px;
+  height: 24px;
+  color: #00ff88;
+  filter: drop-shadow(0 0 12px rgba(0, 255, 136, 0.5));
+  position: relative;
+  z-index: 2;
+  transition: all 0.3s ease;
+  stroke: #00ff88;
+  flex-shrink: 0;
+}
+
+.hamburger-logo:hover .hamburger-logo-icon {
+  filter: drop-shadow(0 0 20px rgba(0, 255, 136, 0.8));
+  transform: scale(1.05);
+}
+
+.hamburger-logo-glow {
+  position: absolute;
+  width: 40px;
+  height: 40px;
+  background: radial-gradient(circle, rgba(0, 255, 136, 0.3) 0%, transparent 70%);
+  border-radius: 50%;
+  opacity: 0;
+  transition: all 0.3s ease;
+  z-index: 1;
+}
+
+.hamburger-title {
+  font-size: 1.1rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  background: linear-gradient(135deg, #00ff88 0%, #00ccff 50%, #00ff88 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin: 0;
+  animation: textShine 3s linear infinite;
+  filter: drop-shadow(0 0 10px rgba(0, 255, 136, 0.3));
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@keyframes textShine {
+  to {
+    background-position: 200% center;
+  }
+}
+
+.hamburger-close {
+  background: transparent;
+  border: none;
+  color: #a0a0a0;
+  cursor: pointer;
+  padding: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  width: 32px;
+  height: 32px;
+}
+
+.hamburger-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  transform: rotate(90deg);
+}
+
+.hamburger-menu-content {
+  flex: 1;
+  padding: 1.5rem 0;
+  overflow-y: auto;
+}
+
+.hamburger-section {
+  margin-bottom: 2rem;
+}
+
+.hamburger-section-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  color: #a0a0a0;
+  text-transform: uppercase;
+  padding: 0 1.25rem;
+  margin-bottom: 0.75rem;
+  font-family: 'Courier New', 'Monaco', monospace;
+  /* Pixelated effect */
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+}
+
+.hamburger-menu-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.hamburger-menu-list li {
+  margin: 0;
+}
+
+.hamburger-menu-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.875rem 1.25rem;
+  background: transparent;
+  border: none;
+  color: #a0a0a0;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+  position: relative;
+  font-family: inherit;
+  font-size: 0.95rem;
+}
+
+.hamburger-menu-item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: #00ff88;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.hamburger-menu-item:hover {
+  background: rgba(0, 255, 136, 0.05);
+  color: #ffffff;
+}
+
+.hamburger-menu-item:hover::before {
+  opacity: 0.5;
+}
+
+.hamburger-menu-item.active {
+  background: rgba(0, 255, 136, 0.2);
+  color: #00ff88;
+}
+
+.hamburger-menu-item.active::before {
+  opacity: 1;
+  width: 4px;
+}
+
+.hamburger-menu-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  color: inherit;
+}
+
+.hamburger-menu-icon svg {
+  width: 100%;
+  height: 100%;
+  stroke: currentColor;
+}
+
+.hamburger-menu-item.active .hamburger-menu-icon {
+  color: #00ff88;
+}
+
+.hamburger-menu-label {
+  flex: 1;
+  font-weight: 500;
+}
+
+.hamburger-menu-badge {
+  background: #00ff88;
+  color: #000;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.2rem 0.5rem;
+  border-radius: 10px;
+  min-width: 20px;
+  text-align: center;
+  line-height: 1.2;
+}
+
+/* Scrollbar styling */
+.hamburger-menu::-webkit-scrollbar {
+  width: 6px;
+}
+
+.hamburger-menu::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.hamburger-menu::-webkit-scrollbar-thumb {
+  background: rgba(0, 255, 136, 0.3);
+  border-radius: 3px;
+}
+
+.hamburger-menu::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 255, 136, 0.5);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .hamburger-menu {
+    width: 280px;
+  }
+}

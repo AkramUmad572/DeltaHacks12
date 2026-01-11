@@ -465,7 +465,130 @@ app.get('/api/events/search', async (req, res) => {
   }
 });
 
-// Get single event
+// IMPORTANT: These specific routes must come BEFORE /api/events/:eventTicker
+// Otherwise Express will match "trending", "breaking", "new" as eventTicker parameters
+
+// Get trending events (sorted by volume)
+app.get('/api/events/trending', async (req, res) => {
+  try {
+    const { limit = 100 } = req.query;
+    const allEvents = await getAllEvents();
+    
+    // Get events with highest volume
+    const trending = allEvents
+      .filter(e => e.markets && e.markets.length > 0)
+      .map(event => {
+        const totalVolume = event.markets.reduce((sum, m) => sum + (m.volume || m.volume_24h || 0), 0);
+        return { ...event, totalVolume };
+      })
+      .filter(e => e.totalVolume > 0) // Must have some volume
+      .sort((a, b) => b.totalVolume - a.totalVolume)
+      .slice(0, parseInt(limit));
+
+    res.json({
+      events: trending,
+      total: trending.length,
+      returned: trending.length
+    });
+  } catch (error) {
+    console.error('Error getting trending events:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get breaking news (recent events from last 7 days)
+app.get('/api/events/breaking', async (req, res) => {
+  try {
+    const { limit = 100 } = req.query;
+    const allEvents = await getAllEvents();
+    const now = new Date();
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    
+    // Filter events that have markets opened in the last 7 days
+    const breaking = allEvents
+      .filter(e => e.markets && e.markets.length > 0)
+      .filter(event => {
+        // Check if any market was opened in the last 7 days
+        return event.markets.some(market => {
+          if (!market.open_time) return false;
+          const openTime = new Date(market.open_time);
+          return openTime >= sevenDaysAgo && openTime <= now;
+        });
+      })
+      .map(event => {
+        // Get the latest open time
+        const openTimes = event.markets
+          .map(m => m.open_time ? new Date(m.open_time) : null)
+          .filter(t => t !== null);
+        const latestOpen = openTimes.length > 0 ? new Date(Math.max(...openTimes)) : null;
+        return { ...event, latestOpenTime: latestOpen };
+      })
+      .sort((a, b) => {
+        // Sort by latest open time (newest first)
+        if (!a.latestOpenTime) return 1;
+        if (!b.latestOpenTime) return -1;
+        return b.latestOpenTime - a.latestOpenTime;
+      })
+      .slice(0, parseInt(limit));
+
+    res.json({
+      events: breaking,
+      total: breaking.length,
+      returned: breaking.length
+    });
+  } catch (error) {
+    console.error('Error getting breaking news:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get new events (recent events from last 3 days)
+app.get('/api/events/new', async (req, res) => {
+  try {
+    const { limit = 100 } = req.query;
+    const allEvents = await getAllEvents();
+    const now = new Date();
+    const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
+    
+    // Filter events that have markets opened in the last 3 days
+    const newEvents = allEvents
+      .filter(e => e.markets && e.markets.length > 0)
+      .filter(event => {
+        // Check if any market was opened in the last 3 days
+        return event.markets.some(market => {
+          if (!market.open_time) return false;
+          const openTime = new Date(market.open_time);
+          return openTime >= threeDaysAgo && openTime <= now;
+        });
+      })
+      .map(event => {
+        // Get the latest open time
+        const openTimes = event.markets
+          .map(m => m.open_time ? new Date(m.open_time) : null)
+          .filter(t => t !== null);
+        const latestOpen = openTimes.length > 0 ? new Date(Math.max(...openTimes)) : null;
+        return { ...event, latestOpenTime: latestOpen };
+      })
+      .sort((a, b) => {
+        // Sort by latest open time (newest first)
+        if (!a.latestOpenTime) return 1;
+        if (!b.latestOpenTime) return -1;
+        return b.latestOpenTime - a.latestOpenTime;
+      })
+      .slice(0, parseInt(limit));
+
+    res.json({
+      events: newEvents,
+      total: newEvents.length,
+      returned: newEvents.length
+    });
+  } catch (error) {
+    console.error('Error getting new events:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get single event (must come AFTER specific routes)
 app.get('/api/events/:eventTicker', async (req, res) => {
   try {
     const { eventTicker } = req.params;
