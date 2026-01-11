@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
 import './App.css';
+import { checkBackendAvailable } from './utils/backendCheck';
 
 const API_BASE = '/api';
 
@@ -221,14 +222,39 @@ Risk Thresholds:
 
     autocompleteTimeoutRef.current = setTimeout(async () => {
       try {
+        // Check if backend is available before making request
+        const backendAvailable = await checkBackendAvailable();
+        if (!backendAvailable) {
+          setAutocompleteResults([]);
+          setShowAutocomplete(false);
+          return;
+        }
+        
         const params = new URLSearchParams();
         params.set('query', trimmedQuery);
         params.set('limit', '8'); // Limit to top 8 results
 
         const response = await fetch(`${API_BASE}/search?${params}`);
-        const data = await response.json();
+        
+        // Check if response is ok and has content
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        // Check if response has content before parsing
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+          throw new Error('Response is not JSON');
+        }
+        
+        const text = await response.text();
+        if (!text || text.trim().length === 0) {
+          throw new Error('Empty response');
+        }
+        
+        const data = JSON.parse(text);
 
-        if (response.ok && data.events) {
+        if (data.events) {
           // Extract unique suggestions with title and category
           const uniqueSuggestions = [];
           const seenTitles = new Set();
@@ -291,8 +317,23 @@ Risk Thresholds:
   const loadSuggestions = async () => {
     try {
       const response = await fetch(`${API_BASE}/suggestions`);
-      const data = await response.json();
-      if (response.ok) {
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        throw new Error('Response is not JSON');
+      }
+      
+      const text = await response.text();
+      if (!text || text.trim().length === 0) {
+        throw new Error('Empty response');
+      }
+      
+      const data = JSON.parse(text);
+      if (data.suggestions) {
         setSuggestions(data.suggestions || []);
       }
     } catch (err) {
@@ -310,14 +351,25 @@ Risk Thresholds:
         : `${API_BASE}/search?category=${encodeURIComponent(activeCategory)}&limit=100`;
       
       const response = await fetch(url);
-      const data = await response.json();
       
-      if (response.ok) {
-        setEvents(data.events || []);
-        setStats({ total: data.total, returned: data.returned });
-      } else {
-        throw new Error(data.error || 'Failed to load events');
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
+      
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        throw new Error('Response is not JSON');
+      }
+      
+      const text = await response.text();
+      if (!text || text.trim().length === 0) {
+        throw new Error('Empty response');
+      }
+      
+      const data = JSON.parse(text);
+      
+      setEvents(data.events || []);
+      setStats({ total: data.total, returned: data.returned });
     } catch (err) {
       setError(err.message);
       setEvents([]);
@@ -339,9 +391,22 @@ Risk Thresholds:
       params.set('limit', '100');
 
       const response = await fetch(`${API_BASE}/search?${params}`);
-      const data = await response.json();
       
-      if (!response.ok) throw new Error(data.error || 'Search failed');
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        throw new Error('Response is not JSON');
+      }
+      
+      const text = await response.text();
+      if (!text || text.trim().length === 0) {
+        throw new Error('Empty response');
+      }
+      
+      const data = JSON.parse(text);
       
       setEvents(data.events || []);
       setStats({ total: data.total, returned: data.returned });
@@ -416,11 +481,23 @@ Risk Thresholds:
     setDetailsLoading(true);
     try {
       const response = await fetch(`${API_BASE}/markets/${ticker}/full`);
-      const data = await response.json();
       
-      if (response.ok) {
-        setMarketDetails(data);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
+      
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        throw new Error('Response is not JSON');
+      }
+      
+      const text = await response.text();
+      if (!text || text.trim().length === 0) {
+        throw new Error('Empty response');
+      }
+      
+      const data = JSON.parse(text);
+      setMarketDetails(data);
     } catch (err) {
       console.error('Error fetching market details:', err);
     } finally {
@@ -449,9 +526,24 @@ Risk Thresholds:
     
     try {
       const response = await fetch(`${API_BASE}/markets/${ticker}/analyze`);
-      const data = await response.json();
       
-      if (response.ok) {
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        throw new Error('Response is not JSON');
+      }
+      
+      const text = await response.text();
+      if (!text || text.trim().length === 0) {
+        throw new Error('Empty response');
+      }
+      
+      const data = JSON.parse(text);
+      
+      if (data.analysis) {
         setInsiderAnalysis(data.analysis);
       }
     } catch (err) {
