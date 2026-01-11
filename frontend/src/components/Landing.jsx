@@ -51,7 +51,7 @@ export default function Landing({ onEnter, onSearch }) {
         
         const params = new URLSearchParams();
         params.set('query', trimmedQuery);
-        params.set('limit', '8'); // Limit to top 8 results
+        params.set('limit', '8'); // Limit to top 5-8 results (showing 8 for better coverage)
 
         const response = await fetch(`${API_BASE}/search?${params}`);
         

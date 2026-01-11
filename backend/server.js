@@ -30,6 +30,10 @@ let eventsCache = {
   ttl: 5 * 60 * 1000 // 5 minutes
 };
 
+// Lock to prevent concurrent calls to getAllEvents
+let isFetching = false;
+let fetchPromise = null;
+
 function initializeKalshiClient() {
   const apiKeyId = process.env.KALSHI_API_KEY_ID;
   const privateKeyPath = process.env.KALSHI_PRIVATE_KEY_PATH;
@@ -76,55 +80,107 @@ function normalizeMarket(market) {
   };
 }
 
+// Helper function to delay execution
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
 // Fetch ALL events with pagination (cached)
 async function getAllEvents(forceRefresh = false) {
   const now = Date.now();
   
+  // Return cached data if still valid
   if (!forceRefresh && eventsCache.data.length > 0 && (now - eventsCache.lastFetch) < eventsCache.ttl) {
     return eventsCache.data;
   }
 
-  console.log('📥 Fetching all events from Kalshi...');
-  
-  let allEvents = [];
-  let cursor = undefined;
-  let pageCount = 0;
-  const maxPages = 10; // Safety limit
-
-  try {
-    do {
-      const response = await eventsApi.getEvents(
-        200, // max limit
-        cursor,
-        true, // withNestedMarkets
-        false,
-        undefined,
-        undefined
-      );
-
-      const events = response.data.events || [];
-      allEvents = allEvents.concat(events);
-      cursor = response.data.cursor;
-      pageCount++;
-
-      console.log(`  Page ${pageCount}: ${events.length} events (total: ${allEvents.length})`);
-    } while (cursor && pageCount < maxPages);
-
-    // Normalize all markets
-    allEvents = allEvents.map(event => ({
-      ...event,
-      markets: (event.markets || []).map(normalizeMarket)
-    }));
-
-    eventsCache.data = allEvents;
-    eventsCache.lastFetch = now;
-
-    console.log(`✅ Cached ${allEvents.length} events`);
-    return allEvents;
-  } catch (error) {
-    console.error('Error fetching all events:', error.message);
-    return eventsCache.data; // Return stale cache on error
+  // If already fetching, wait for the existing fetch to complete
+  if (isFetching && fetchPromise) {
+    return fetchPromise;
   }
+
+  // Start new fetch
+  fetchPromise = (async () => {
+    if (isFetching) {
+      // Another call started while we were waiting, use that one
+      return fetchPromise;
+    }
+
+    isFetching = true;
+    console.log('📥 Fetching all events from Kalshi...');
+    
+    let allEvents = [];
+    let cursor = undefined;
+    let pageCount = 0;
+    const maxPages = 10; // Safety limit
+    const delayBetweenRequests = 500; // 500ms delay between requests to avoid rate limiting
+
+    try {
+      do {
+        let retries = 3;
+        let success = false;
+        
+        while (retries > 0 && !success) {
+          try {
+            const response = await eventsApi.getEvents(
+              200, // max limit
+              cursor,
+              true, // withNestedMarkets
+              false,
+              undefined,
+              undefined
+            );
+
+            const events = response.data.events || [];
+            allEvents = allEvents.concat(events);
+            cursor = response.data.cursor;
+            pageCount++;
+            success = true;
+
+            console.log(`  Page ${pageCount}: ${events.length} events (total: ${allEvents.length})`);
+            
+            // Add delay between requests to avoid rate limiting (except for last request)
+            if (cursor && pageCount < maxPages) {
+              await delay(delayBetweenRequests);
+            }
+          } catch (error) {
+            // Handle rate limiting (429) with exponential backoff
+            if (error.response?.status === 429 || error.message?.includes('429')) {
+              retries--;
+              if (retries > 0) {
+                const backoffDelay = Math.pow(2, 3 - retries) * 1000; // 1s, 2s, 4s
+                console.log(`  ⚠️  Rate limited (429), retrying in ${backoffDelay}ms... (${retries} retries left)`);
+                await delay(backoffDelay);
+              } else {
+                throw error;
+              }
+            } else {
+              throw error;
+            }
+          }
+        }
+      } while (cursor && pageCount < maxPages);
+
+      // Normalize all markets
+      allEvents = allEvents.map(event => ({
+        ...event,
+        markets: (event.markets || []).map(normalizeMarket)
+      }));
+
+      eventsCache.data = allEvents;
+      eventsCache.lastFetch = Date.now();
+
+      console.log(`✅ Cached ${allEvents.length} events`);
+      return allEvents;
+    } catch (error) {
+      console.error('Error fetching all events:', error.message);
+      // Return stale cache if available, otherwise empty array
+      return eventsCache.data.length > 0 ? eventsCache.data : [];
+    } finally {
+      isFetching = false;
+      fetchPromise = null;
+    }
+  })();
+
+  return fetchPromise;
 }
 
 // Score an event based on search relevance
