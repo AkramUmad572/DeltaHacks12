@@ -3,6 +3,7 @@
 TradeGuard is a system for detecting potentially suspicious trading behavior in prediction markets. It ingests real-time market data, applies multiple quantitative detection methods, and produces a normalized risk score with a short explanation for each flagged market or trade.
 
 The project is designed to explore how quantitative signals, AI-assisted reasoning, and continuous feedback can be combined to improve surveillance in markets where labeled insider-trading data is limited. <br>
+
 Live Link: https://trade-guard-ten.vercel.app/
 ## Tech Stack
 Frontend --> React.js, Three.js, interactive market search and visualization interface for viewing risk scores and flagged behavior. <br>
