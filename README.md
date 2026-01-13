@@ -19,3 +19,9 @@ npm install
 
 cd ../frontend
 npm install
+
+## System Architecture
+
+![TradeGuard System Architecture Diagram](frontend/dist/assets/Diagram.png)
+
+*Figure: TradeGuard system architecture showing data flow from frontend through backend detection algorithms to external services.*
